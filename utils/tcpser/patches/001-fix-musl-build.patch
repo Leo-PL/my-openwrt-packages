@@ -1,0 +1,10 @@
+--- a/src/ip232.c
++++ b/src/ip232.c
+@@ -6,6 +6,7 @@
+ #include <stdio.h>
+ #include <fcntl.h>
+ #include <sys/ioctl.h>
++#include <sys/select.h>
+ #include <pthread.h>
+ 
+ #include "util.h"
