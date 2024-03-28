@@ -1,0 +1,12 @@
+#!/bin/sh /etc/rc.common
+
+START=99
+
+start() {
+	cd /sys/class/ieee80211
+	for phyid in phy*; do
+		if [ "$(basename $(readlink -f ${phyid}/device/driver))" == "ath9k" ]; then
+			iw phy ${phyid} set txq memory_limit 8388608
+		fi
+	done
+}
