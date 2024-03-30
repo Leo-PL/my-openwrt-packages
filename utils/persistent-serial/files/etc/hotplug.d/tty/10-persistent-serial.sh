@@ -1,26 +1,29 @@
-[ "${ACTION}" = "add" -o "${ACTION}" = "remove" ] || exit 0
-[ "${SUBSYSTEM}" = "tty" ] || exit 0
-[ -n "${DEVNAME}" -a -n "${DEVPATH}" ] || exit 1
+set -o pipefail
+[ "${ACTION}" = "bind" -o "${ACTION}" = "unbind" ] || exit 0
+[ "${SUBSYSTEM}" = "usb-serial" ] || exit 0
+[ -n "${DEVICENAME}" -a -n "${DEVPATH}" ] || exit 1
 
-if [ "${ACTION}" = "add" ]; then
-	subsystem="$(basename $(readlink /sys${DEVPATH}/../../../subsystem))"
+if [ "${ACTION}" = "bind" ]; then
+	subsystem="$(basename $(readlink /sys${DEVPATH}/../subsystem))"
 
 	[ "$subsystem" = "usb" ] || exit 0
 
-	manufacturer="$(cat /sys${DEVPATH}/../../../../manufacturer)" || manufacturer="$(cat /sys${DEVPATH}/../../../../idVendor)"
-	product="$(cat /sys${DEVPATH}/../../../../product)" || product="$(cat /sys${DEVPATH}/../../../../idProduct)"
-	serial="$(cat /sys${DEVPATH}/../../../../serial)"
-	interface="$(cat /sys${DEVPATH}/../../../bInterfaceNumber)"
-	port="$(cat /sys${DEVPATH}/device/port_number)"
+	replace_whitespace="s/^[ \t]*|[ \t]*$//g; s/[ \t]+/_/g"
+	manufacturer="$(cat /sys${DEVPATH}/../../manufacturer | sed -E "${replace_whitespace}")" || manufacturer="$(cat /sys${DEVPATH}/../../idVendor)"
+	product="$(cat /sys${DEVPATH}/../../product | sed -E "${replace_whitespace}")" || product="$(cat /sys${DEVPATH}/../../idProduct)"
+	serial="$(cat /sys${DEVPATH}/../../serial | sed -E "${replace_whitespace}")"
+	interface="$(cat /sys${DEVPATH}/../bInterfaceNumber)"
+	port="$(cat /sys${DEVPATH}/port_number)"
 
-	id_link=$(echo "${subsystem}"-"${manufacturer}"_"${product}${serial:+_}${serial}"-if"${interface}${port:+-port}${port}" | sed s/[^\.\:0-9A-Za-z-]/_/g)
-	path_link=$(echo "${DEVPATH}${port:+-port}${port}" | sed s%/devices/%% | sed s%/${DEVNAME}/tty/${DEVNAME}%%g | sed s/[^\.\:0-9A-Za-z-]/_/g)
+	replace_chars="s/[^0-9A-Za-z#+.:=@-]/_/g"
+	id_link=$(echo "${subsystem}"-"${manufacturer}"_"${product}${serial:+_}${serial}"-if"${interface}${port:+-port}${port}" | sed "${replace_chars}")
+	path_link=$(echo "${DEVPATH}${port:+-port}${port}" | sed "s%/devices/%%; s%/${DEVICENAME}%%g; ${replace_chars}")
 
 	mkdir -p /dev/serial/by-id /dev/serial/by-path
-	ln -sf "/dev/${DEVNAME}" "/dev/serial/by-id/${id_link}"
-	ln -sf "/dev/${DEVNAME}" "/dev/serial/by-path/${path_link}"
-elif [ "${ACTION}" = "remove" ]; then
+	ln -sf "/dev/${DEVICENAME}" "/dev/serial/by-id/${id_link}"
+	ln -sf "/dev/${DEVICENAME}" "/dev/serial/by-path/${path_link}"
+elif [ "${ACTION}" = "unbind" ]; then
 	for link in $(find /dev/serial -type l); do
-		[ -L ${link} -a "$(readlink ${link})" = "/dev/$DEVNAME" ] && rm ${link}
+		[ -L ${link} -a "$(readlink ${link})" = "/dev/$DEVICENAME" ] && rm ${link}
 	done
 fi
